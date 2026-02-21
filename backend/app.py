@@ -2,8 +2,7 @@
 CurrHub — AI Curriculum Generator  (Production Backend)
 Flask + IBM Granite 3.3 2B via Ollama
 """
-import os
-import time
+
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 import requests, json, time, csv, re
@@ -970,32 +969,23 @@ def route_export():
 
 @app.route("/health", methods=["GET"])
 def health():
-    # Detect if we are using Groq or Local Ollama
-    api_key = os.getenv("GROQ_API_KEY")
-    
-    health_data = {
-        "status": "healthy",
-        "timestamp": time.time(),
-        "provider": "Groq" if api_key else "Ollama"
-    }
-
+    # Check Ollama connectivity
     try:
-        if api_key:
-            # Check Groq API (using their models endpoint)
-            headers = {"Authorization": f"Bearer {api_key}"}
-            r = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=5)
-            health_data["api_online"] = r.status_code == 200
-        else:
-            # Check Local Ollama
-            r = requests.get("http://localhost:11434/api/tags", timeout=4)
-            health_data["api_online"] = r.status_code == 200
-            health_data["available_models"] = [m["name"] for m in r.json().get("models", [])]
-            
-    except Exception as e:
-        health_data["api_online"] = False
-        health_data["error"] = str(e)
+        r = requests.get("http://localhost:11434/api/tags", timeout=4)
+        ollama_ok = r.status_code == 200
+        models    = [m["name"] for m in r.json().get("models",[])]
+    except Exception:
+        ollama_ok = False
+        models    = []
+    return jsonify({
+        "status":        "healthy",
+        "model":         MODEL_ID,
+        "ollama_online": ollama_ok,
+        "available_models": models,
+        "timestamp":     time.time(),
+    })
 
-    return jsonify(health_data)
+
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     print(f"  Visit : http://localhost:5000")
